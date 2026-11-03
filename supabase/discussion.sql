@@ -137,7 +137,7 @@ create policy "Signed-in users reply to open topics"
 on public.discussion_replies for insert to authenticated
 with check (
   user_id = auth.uid()
-  and exists (select 1 from public.discussion_topics t where t.id = topic_id and t.status = 'open')
+  and exists (select 1 from public.discussion_topics t where t.id = topic_id and t.status in ('open','solved'))
 );
 
 drop policy if exists "Owners and moderators update replies" on public.discussion_replies;
