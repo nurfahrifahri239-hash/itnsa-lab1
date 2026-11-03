@@ -116,7 +116,13 @@ Deno.serve(async (req) => {
       }
       const profilePatch: any = {};
       if (body.role !== undefined) {
+        if (!isSuper) return reply({ error: "Hanya Superadmin yang dapat mengubah role." }, 403);
         if (!["user", "admin", "superadmin"].includes(body.role)) return reply({ error: "Role tidak valid." }, 400);
+        if (targetRole === "superadmin" && body.role !== "superadmin") {
+          const { count, error } = await admin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "superadmin");
+          if (error) throw error;
+          if ((count || 0) <= 1) return reply({ error: "Superadmin terakhir tidak boleh diturunkan." }, 400);
+        }
         profilePatch.role = body.role;
       }
       if (body.full_name !== undefined) profilePatch.full_name = String(body.full_name).slice(0, 120);
