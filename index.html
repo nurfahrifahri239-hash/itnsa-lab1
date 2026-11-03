@@ -606,37 +606,32 @@ const sha256=(()=>{const P=[];for(let n=2;P.length<64;n++)if(P.every(p=>n%p))P.p
 /* KDF sederhana: SHA-256 berulang + salt per akun (tanpa crypto.subtle agar jalan di WebView/file://) */
 const kdf=(salt,pw)=>{let h=sha256(salt+':'+pw);for(let i=0;i<3000;i++)h=sha256(h+':'+salt+':'+pw);return h};
 const SEED=[["siswa01", "c6ab883979d74818", "f2b63d596425a1b089e44e6abe8fa0bb70006e98ec4cb18fbac246cd94339aeb", "user"], ["siswa02", "8243f382a351304f", "b89a9bf9e69195cd2674d0c3425aad4a040b7404143b3a7b50950e081db60bc5", "user"], ["siswa03", "683d19a10df78c1e", "1890821064d537cb1a3c38798f8257a7d4b64bf96c3af4e4d2f39fe0fe5688a8", "user"], ["siswa04", "b1a7cb2d9a970df6", "a5d5b76c1f3a1437dba5f69e8b0fda43bf3a64946e2aba9467b2de18df9c54e5", "user"], ["siswa05", "65969933c3e01ac5", "c697daed4f0ae134b3009081a73bd79397caa3f47f5f7e47b4ad0a801fe5192d", "user"], ["siswa06", "3e49b0ae7f90fa2a", "db62f7cf2055f1ae567950386c00367bc67ba4f2aef24c07784c0537a8427e8b", "user"], ["siswa07", "26df96681cda1caa", "b4b92547794967a63b583d6b661c56dee113a5d537bd6eaf08c55138ba621237", "user"], ["siswa08", "d858fc09623ee4b4", "53bf82374599cb8cce5dcdeefa887cae8907626dbff985b5af599873e834ee3d", "user"], ["siswa09", "ba9137336c50b840", "0c11a8f15e596f0fab99975070128dba3fcee3e5c4337bd5a46871d593bf12e1", "user"], ["siswa10", "bb721bc3ba7725b4", "a1d5ba5cd713e844026da500f97bc0a142c414b91aa2ad2a83e27ccd1de892e4", "user"], ["superadmin01", "619dc77daa8fd8cd", "8999f7109add62fa5f0337a29c6e48d31837e585a5a8133b0c062256df00cf0e", "superadmin"], ["superadmin02", "b9348fab35771b20", "f5ac66e736274f462696556c9f8e83e8371606fa9c243dc1f7a81b8ddcee5dcf", "superadmin"]];
-const AU=(()=>{const AK='itnsa_auth',SK='itnsa_sess',APPK='itnsa-lab-local-seal-v1',mem={};let TAMP=false,F={n:0,u:0};
- const gs=k=>{try{return localStorage.getItem(k)}catch(_){return mem[k]||null}},ss=(k,v)=>{try{localStorage.setItem(k,v)}catch(_){mem[k]=v}},rm=k=>{try{localStorage.removeItem(k)}catch(_){delete mem[k]}};
- const ts=()=>Date.now(),seal=u=>sha256(JSON.stringify(u)+APPK),eq=(a,b)=>{if(a.length!=b.length)return false;let r=0;for(let i=0;i<a.length;i++)r|=a.charCodeAt(i)^b.charCodeAt(i);return r==0};
- const save=d=>{d.seal=seal(d.users);ss(AK,JSON.stringify(d))};
- const load=()=>{let d=null;try{d=JSON.parse(gs(AK))}catch(_){}if(!d||!Array.isArray(d.users)||d.seal!==seal(d.users)){if(d)TAMP=true;d={users:SEED.map(([u,s,h,r])=>({u,salt:s,h,role:r,on:1,c:0,l:0}))};save(d)}return d};
- const sig=(u,t,h)=>sha256([u,t,h,APPK].join('|')),mk=x=>{const t=ts();ss(SK,JSON.stringify({u:x.u,t,sig:sig(x.u,t,x.h)}))};
- const sess=d=>{let s=null;try{s=JSON.parse(gs(SK))}catch(_){}if(!s)return null;const x=d.users.find(y=>y.u==s.u);return x&&x.on&&s.sig===sig(s.u,s.t,x.h)?x:null};
- const mgr=a=>!!a&&(a.role=='admin'||a.role=='superadmin'),sup=a=>!!a&&a.role=='superadmin',can=(a,t)=>sup(a)||(a.role=='admin'&&t.role=='user'),nSup=d=>d.users.filter(y=>y.role=='superadmin'&&y.on).length;
- const vu=u=>/^[a-z0-9._-]{3,24}$/.test(u),vp=p=>typeof p=='string'&&p.length>=8&&p.length<=64,ROLES=['user','admin','superadmin'];
- const rnd=n=>{const a=new Uint8Array(n);try{crypto.getRandomValues(a)}catch(_){for(let i=0;i<n;i++)a[i]=Math.random()*256}return a};
- const nsalt=()=>Array.from(rnd(8),x=>x.toString(16).padStart(2,'0')).join(''),gen=()=>Array.from(rnd(10),x=>'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'[x%56]).join('');
- const act=fn=>{const d=load(),a=sess(d);if(!mgr(a))return{err:'Akses ditolak.'};return fn(d,a)};
- const find=(d,t)=>d.users.find(y=>y.u==t);
+const SUPABASE_URL='https://unzcuuebzllijochqmxo.supabase.co';
+const SUPABASE_KEY='sb_publishable_FsP54jo-cQe-Q5AMUrJCDw_x3aHOlmW';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const AU=(()=>{
+ let current=null,users=[],usersLoaded=false;
+ const roles=['user','admin','superadmin'];
+ const gen=()=>{const a=new Uint8Array(16);crypto.getRandomValues(a);const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$';return Array.from(a,x=>c[x%c.length]).join('')};
+ const isMgr=()=>!!current&&['admin','superadmin'].includes(current.role);
+ const isSuper=()=>!!current&&current.role==='superadmin';
+ const cur=()=>current?{u:current.email,role:current.role,id:current.id,full_name:current.full_name||''}:null;
+ async function loadProfile(user){if(!user){current=null;return null}const {data,error}=await sb.from('profiles').select('id,email,full_name,role').eq('id',user.id).single();if(error||!data){current=null;return null}current={id:user.id,email:data.email||user.email,full_name:data.full_name||'',role:roles.includes(data.role)?data.role:'user'};return current}
+ async function adminCall(action,payload={}){const {data:{session}}=await sb.auth.getSession();if(!session)return{err:'Sesi login berakhir. Silakan login kembali.'};const res=await fetch(SUPABASE_URL+'/functions/v1/admin-users',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+session.access_token},body:JSON.stringify(Object.assign({action},payload))});let out={};try{out=await res.json()}catch(_){}if(!res.ok)return{err:out.error||('Permintaan gagal ('+res.status+').')};return out}
  return{
-  cur:()=>{const x=sess(load());return x?{u:x.u,role:x.role}:null},
-  isMgr:()=>mgr(sess(load())),isSuper:()=>sup(sess(load())),tamp:()=>TAMP,clearTamp:()=>{TAMP=false},gen,
-  login:(u,pw)=>{if(ts()<F.u)return{err:'Terlalu banyak percobaan. Tunggu '+Math.ceil((F.u-ts())/1000)+' detik.'};const d=load(),x=find(d,String(u).trim().toLowerCase()),h=kdf(x?x.salt:'00000000',String(pw));
-   if(!x||!eq(h,x.h)){if(++F.n>=5){F.n=0;F.u=ts()+30000}return{err:'Username atau password salah.'}}
-   if(!x.on)return{err:'Akun dinonaktifkan. Hubungi Admin.'};F.n=0;x.l=ts();save(d);mk(x);return{ok:1}},
-  logout:()=>rm(SK),
-  list:()=>act((d,a)=>({users:d.users.map(y=>({u:y.u,role:y.role,on:y.on,c:y.c,l:y.l})),me:a.u,mrole:a.role})),
-  create:(u,pw,role)=>act((d,a)=>{u=String(u||'').trim().toLowerCase();if(!vu(u))return{err:'Username 3\u201324 karakter: huruf kecil, angka, titik, minus, garis bawah.'};if(!vp(pw))return{err:'Password minimal 8 karakter.'};if(!ROLES.includes(role))return{err:'Role tidak valid.'};if(!sup(a)&&role!='user')return{err:'Admin hanya boleh membuat akun User biasa.'};if(find(d,u))return{err:'Username sudah dipakai.'};const s=nsalt();d.users.push({u,salt:s,h:kdf(s,pw),role,on:1,c:ts(),l:0});save(d);return{ok:1}}),
-  edit:(t,o)=>act((d,a)=>{const x=find(d,t);if(!x)return{err:'Akun tidak ditemukan.'};if(!can(a,x))return{err:'Anda tidak berhak mengubah akun ini.'};const last=x.role=='superadmin'&&x.on&&nSup(d)==1;
-   if(o.role!==undefined&&o.role!==x.role){if(!sup(a))return{err:'Hanya Superadmin yang dapat mengubah role.'};if(!ROLES.includes(o.role))return{err:'Role tidak valid.'};if(last)return{err:'Superadmin terakhir tidak boleh diturunkan.'}}
-   if(o.on!==undefined&&!!o.on!==!!x.on){if(!sup(a))return{err:'Hanya Superadmin yang dapat mengaktifkan/menonaktifkan akun.'};if(last)return{err:'Superadmin terakhir tidak boleh dinonaktifkan.'}}
-   let nu=x.u;if(o.u!==undefined&&String(o.u).trim().toLowerCase()!==x.u){nu=String(o.u).trim().toLowerCase();if(!vu(nu))return{err:'Username tidak valid (3\u201324 karakter a-z 0-9 . _ -).'};if(find(d,nu))return{err:'Username sudah dipakai.'}}
-   if(o.pw&&!vp(o.pw))return{err:'Password minimal 8 karakter.'};
-   if(o.role!==undefined)x.role=o.role;if(o.on!==undefined)x.on=o.on?1:0;x.u=nu;if(o.pw){x.salt=nsalt();x.h=kdf(x.salt,o.pw)}save(d);if(a.u==t)mk(x);return{ok:1}}),
-  del:t=>act((d,a)=>{const x=find(d,t);if(!x)return{err:'Akun tidak ditemukan.'};if(!can(a,x))return{err:'Anda tidak berhak menghapus akun ini.'};if(x.u==a.u)return{err:'Tidak dapat menghapus akun yang sedang dipakai.'};if(x.role=='superadmin'&&x.on&&nSup(d)==1)return{err:'Superadmin terakhir tidak boleh dihapus.'};d.users=d.users.filter(y=>y!==x);save(d);return{ok:1}}),
-  reset:t=>act((d,a)=>{const x=find(d,t);if(!x)return{err:'Akun tidak ditemukan.'};if(!can(a,x))return{err:'Anda tidak berhak mereset akun ini.'};const p=gen();x.salt=nsalt();x.h=kdf(x.salt,p);save(d);if(a.u==t)mk(x);return{ok:1,pw:p}})}})();
-/* ----- UI login ----- */
+  cur,isMgr,isSuper,gen,
+  async login(email,password){const {data,error}=await sb.auth.signInWithPassword({email:String(email).trim().toLowerCase(),password:String(password)});if(error)return{err:error.message};const p=await loadProfile(data.user);if(!p){await sb.auth.signOut();return{err:'Profil akun belum tersedia. Periksa tabel profiles di Supabase.'}}return{ok:1}},
+  async logout(){await sb.auth.signOut();current=null;users=[];usersLoaded=false},
+  list(){return isMgr()?{users,me:current.email,mrole:current.role}:{err:'Akses ditolak.'}},
+  hasUsers(){return usersLoaded},
+  async loadUsers(){if(!isMgr())return{err:'Akses ditolak.'};const r=await adminCall('list');if(r.err)return r;users=(r.users||[]).map(x=>({u:x.email,role:x.role,on:x.on?1:0,c:x.c||0,l:x.l||0,full_name:x.full_name||''}));usersLoaded=true;return{ok:1}},
+  async create(email,password,role,full_name){if(!email||!String(email).includes('@'))return{err:'Email tidak valid.'};if(!password||password.length<8)return{err:'Password minimal 8 karakter.'};if(!roles.includes(role))return{err:'Role tidak valid.'};const r=await adminCall('create',{email:String(email).trim().toLowerCase(),password,role,full_name:full_name||''});if(!r.err)await this.loadUsers();return r},
+  async edit(email,o){const payload={email};if(o.role!==undefined)payload.role=o.role;if(o.on!==undefined)payload.active=!!o.on;if(o.pw)payload.password=o.pw;if(o.full_name!==undefined)payload.full_name=o.full_name;const r=await adminCall('update',payload);if(!r.err)await this.loadUsers();return r},
+  async del(email){const r=await adminCall('delete',{email});if(!r.err)await this.loadUsers();return r},
+  async reset(email){const password=gen(),r=await adminCall('reset',{email,password});if(!r.err)await this.loadUsers();return r.err?r:{ok:1,pw:password}},
+  async init(){const {data:{session}}=await sb.auth.getSession();if(session){const p=await loadProfile(session.user);if(!p)await sb.auth.signOut()}else current=null}
+ };
+})();/* ----- UI login ----- */
 const RL={user:'User',admin:'Admin',superadmin:'Superadmin'};
 function authGate(){const ok=!!AU.cur(),a=$('#app');a.className=ok?'':'lgn';if(!ok){a.innerHTML=loginHTML();const u=$('#lgu');u&&u.focus()}return ok}
 function loginHTML(){const t=AU.tamp();if(t)AU.clearTamp();return`<div class="lgw"><div class="lgc"><h1>ITNSA<b>LAB</b></h1><p class="lgs">Configuration Trainer</p>${t?'<div class="warn">Data akun lokal tidak valid dan dikembalikan ke akun awal.</div>':''}<label>Username<input id="lgu" autocomplete="username" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')$('#lgp').focus()"></label><label>Password<div class="pw"><input id="lgp" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" id="lgt" onclick="tgPw()">Tampilkan</button></div></label><div id="lge" class="no" style="min-height:22px;margin:6px 0"></div><button class="pr" style="width:100%;padding:11px" onclick="doLogin()">Masuk</button><p class="lgs" style="margin-top:14px">Tidak ada pendaftaran. Akun hanya dibuat oleh Admin atau Superadmin.</p></div></div>`}
