@@ -114,7 +114,7 @@ returns trigger
 language plpgsql
 security invoker
 set search_path = public
-as $
+as $$
 begin
   if tg_op = 'INSERT' then
     if new.user_id <> auth.uid() or new.status <> 'open' then
@@ -143,7 +143,7 @@ returns trigger
 language plpgsql
 security invoker
 set search_path = public
-as $
+as $$
 begin
   if tg_op = 'INSERT' then
     if new.user_id <> auth.uid() or new.is_solution then
