@@ -72,14 +72,25 @@ set search_path = public
 as $$
 declare
   display_name text;
+  target_user_id uuid;
 begin
+  if tg_table_name = 'discussion_reports' then
+    target_user_id := new.reporter_id;
+  else
+    target_user_id := new.user_id;
+  end if;
+
   select coalesce(nullif(trim(p.full_name), ''), split_part(coalesce(p.email, u.email, 'anggota'), '@', 1), 'Anggota')
     into display_name
   from auth.users u
   left join public.profiles p on p.id = u.id
-  where u.id = new.user_id;
+  where u.id = target_user_id;
 
-  new.author_name := coalesce(display_name, 'Anggota');
+  if tg_table_name = 'discussion_reports' then
+    new.reporter_name := coalesce(display_name, 'Anggota');
+  else
+    new.author_name := coalesce(display_name, 'Anggota');
+  end if;
   return new;
 end;
 $$;
