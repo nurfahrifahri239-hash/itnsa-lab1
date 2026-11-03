@@ -72,6 +72,25 @@ Deno.serve(async (req) => {
 
     const email = String(body.email || "").trim().toLowerCase();
     if (!email || !email.includes("@")) return reply({ error: "Email tidak valid." }, 400);
+
+    if (action === "create") {
+      const password = String(body.password || "");
+      const role = String(body.role || "user");
+      if (password.length < 8) return reply({ error: "Password minimal 8 karakter." }, 400);
+      if (!["user", "admin", "superadmin"].includes(role)) return reply({ error: "Role tidak valid." }, 400);
+      if (!isSuper && role !== "user") return reply({ error: "Admin hanya boleh membuat akun User." }, 403);
+      const { data, error } = await admin.auth.admin.createUser({
+        email, password, email_confirm: true,
+        user_metadata: { full_name: String(body.full_name || "").slice(0, 120) }
+      });
+      if (error) throw error;
+      const { error: pError } = await admin.from("profiles").upsert({
+        id: data.user.id, email, full_name: String(body.full_name || "").slice(0, 120), role
+      });
+      if (pError) throw pError;
+      return reply({ ok: true });
+    }
+
     const target = await getTarget(email);
     if (!target) return reply({ error: "Akun tidak ditemukan." }, 404);
     const { data: targetProfile } = await admin.from("profiles").select("id,email,role")
@@ -79,11 +98,6 @@ Deno.serve(async (req) => {
     const targetRole = targetProfile?.role || "user";
     if (!isSuper && targetRole !== "user") return reply({ error: "Admin hanya boleh mengelola akun User." }, 403);
     if (target.id === authData.user.id && action === "delete") return reply({ error: "Tidak dapat menghapus akun sendiri." }, 400);
-
-    if (action === "create") {
-      // handled below; target lookup is not applicable for a new account
-      return reply({ error: "Email sudah terdaftar." }, 409);
-    }
 
     if (action === "update") {
       if (body.role !== undefined && !isSuper) return reply({ error: "Hanya Superadmin yang dapat mengubah role." }, 403);
