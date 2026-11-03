@@ -132,7 +132,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists discussion_topics_guard on public.discussion_topics;
 create trigger discussion_topics_guard before insert or update on public.discussion_topics
@@ -163,7 +163,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists discussion_replies_guard on public.discussion_replies;
 create trigger discussion_replies_guard before insert or update on public.discussion_replies
