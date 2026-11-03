@@ -1,4 +1,4 @@
-<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>ITNSA LAB – Configuration Trainer</title>
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>ITNSA LAB – Configuration Trainer</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#06101f;--p:#0b1a33;--p2:#12264a;--c:#22d3ee;--r:#ef4444;--t:#dbe7f5;--m:#7d93b3;--ok:#34d399;--ln:#1d3562}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -634,11 +634,11 @@ const AU=(()=>{
 })();/* ----- UI login ----- */
 const RL={user:'User',admin:'Admin',superadmin:'Superadmin'};
 function authGate(){const ok=!!AU.cur(),a=$('#app');a.className=ok?'':'lgn';if(!ok){a.innerHTML=loginHTML();const u=$('#lgu');u&&u.focus()}return ok}
-function loginHTML(){const t=AU.tamp();if(t)AU.clearTamp();return`<div class="lgw"><div class="lgc"><h1>ITNSA<b>LAB</b></h1><p class="lgs">Configuration Trainer</p>${t?'<div class="warn">Data akun lokal tidak valid dan dikembalikan ke akun awal.</div>':''}<label>Username<input id="lgu" autocomplete="username" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')$('#lgp').focus()"></label><label>Password<div class="pw"><input id="lgp" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" id="lgt" onclick="tgPw()">Tampilkan</button></div></label><div id="lge" class="no" style="min-height:22px;margin:6px 0"></div><button class="pr" style="width:100%;padding:11px" onclick="doLogin()">Masuk</button><p class="lgs" style="margin-top:14px">Tidak ada pendaftaran. Akun hanya dibuat oleh Admin atau Superadmin.</p></div></div>`}
+function loginHTML(){const t=AU.tamp();if(t)AU.clearTamp();return`<div class="lgw"><div class="lgc"><h1>ITNSA<b>LAB</b></h1><p class="lgs">Configuration Trainer</p>${t?'<div class="warn">Data akun lokal tidak valid dan dikembalikan ke akun awal.</div>':''}<label>Email<input id="lgu" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')$('#lgp').focus()"></label><label>Password<div class="pw"><input id="lgp" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" id="lgt" onclick="tgPw()">Tampilkan</button></div></label><div id="lge" class="no" style="min-height:22px;margin:6px 0"></div><button class="pr" style="width:100%;padding:11px" onclick="doLogin()">Masuk</button><p class="lgs" style="margin-top:14px">Tidak ada pendaftaran. Akun hanya dibuat oleh Admin atau Superadmin.</p></div></div>`}
 function tgPw(){const i=$('#lgp'),b=$('#lgt'),s=i.type=='password';i.type=s?'text':'password';b.textContent=s?'Sembunyikan':'Tampilkan'}
-function doLogin(){const r=AU.login($('#lgu').value,$('#lgp').value);if(r.err){$('#lge').textContent=r.err;$('#lgp').value='';return}V='dash';render()}
-function userBox(){const m=AU.cur();return m?`<div class="ub"><div><b>${esc(m.u)}</b> <span class="lb" style="color:${m.role=='user'?'#22d3ee':m.role=='admin'?'#fbbf24':'#ef4444'}">${RL[m.role]}</span></div><button style="margin-top:8px;width:100%" onclick="doLogout()">Logout</button></div>`:''}
-function doLogout(){AU.logout();V='dash';try{DL.vm=null;TS.vm=null;X=null}catch(_){}render()}
+async function doLogin(){const r=await AU.login($('#lgu').value,$('#lgp').value);if(r.err){$('#lge').textContent=r.err;$('#lgp').value='';return}V='dash';render()}
+function userBox(){const m=AU.cur();return m?'<div class="ub"><div><b>'+esc(m.u)+'</b> <span class="lb" style="color:'+(m.role=='user'?'#22d3ee':m.role=='admin'?'#fbbf24':'#ef4444')+'">'+RL[m.role]+'</span></div><button style="margin-top:8px;width:100%" onclick="doLogout()">Logout</button></div>':''}
+async function doLogout(){await AU.logout();V='dash';try{DL.vm=null;TS.vm=null;X=null}catch(_){}render()}
 /* ----- Dashboard Admin / Superadmin ----- */
 let AD={q:''};
 const mopen=h=>{let m=$('#amd');if(!m){m=document.createElement('div');m.id='amd';m.className='amd';document.body.appendChild(m)}m.innerHTML=`<div class="amc">${h}</div>`},mclose=()=>{const m=$('#amd');if(m)m.remove()};
@@ -659,7 +659,8 @@ function admResetOk(u){const r=AU.reset(u);if(r.err){$('#merr').textContent=r.er
 function admTog(u,on){const r=AU.edit(u,{on});if(r.err){mopen(`<h3>Gagal</h3><div class="no">${esc(r.err)}</div><button onclick="mclose()">Tutup</button>`);return}render()}
 (()=>{const s=document.createElement('style');s.textContent='#app.lgn{display:block}.lgw{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 25% 15%,#12305f,#06101f 62%)}.lgc{width:100%;max-width:380px;background:var(--p);border:1px solid var(--ln);border-radius:16px;padding:28px;box-shadow:0 20px 60px #0008}.lgc h1{margin:0;font-size:30px;letter-spacing:1px}.lgc h1 b{color:var(--c)}.lgs{color:var(--m);font-size:12px;margin:2px 0 18px}.lgc label,.amc label{display:block;font-size:12px;color:var(--m);margin-top:10px}.lgc input,.amc input,.amc select{width:100%;margin-top:4px;background:#040b18;border:1px solid var(--ln);color:var(--t);border-radius:8px;padding:10px;font:inherit}.pw{display:flex;gap:6px}.pw input{flex:1}.pw button{white-space:nowrap;margin-top:4px}.ub{border-top:1px solid var(--ln);margin-top:14px;padding-top:12px}.amd{position:fixed;inset:0;background:rgba(2,8,20,.82);display:flex;align-items:center;justify-content:center;z-index:99;padding:12px}.amc{background:var(--p);border:1px solid var(--ln);border-radius:12px;padding:18px;width:100%;max-width:420px;max-height:90vh;overflow:auto}';document.head.appendChild(s)})();
 
-render();
+async function initAuth(){try{await AU.init()}catch(e){console.error(e)}render()}
+initAuth();
 /* ===== NX: Diskusi, Saran Admin, Quiz Center, Module Academy (lokal, tanpa backend) ===== */
 (()=>{
 const K='itnsa_nx',D={th:[],sg:[],rp:[],q:{},m:{},seq:0};
